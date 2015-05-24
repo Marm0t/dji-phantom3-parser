@@ -6,6 +6,8 @@
 #include <sstream>
 #include <cstring>
 #include <stdint.h>
+#include <math.h>
+#define PACKET_HEADER_LEN 10
 
 using namespace std;
 
@@ -17,28 +19,75 @@ class Packet
         Packet():_packetLen(0), _packetType(0), _msgId(0){};
 
         void push_back(char iVal){ _packv.push_back(iVal); };
-        void clear(){ _packv.clear(); };
+        void clear(){ _packv.clear(); _dataDoubles.clear(); };
         string toString() const;
 
         void parseHex();
 
         const uint32_t getPacketType() const { return _packetType; };
+        const vector<double>& getDataDoubles() {return _dataDoubles; } ;
 
+        static double doubleFromBytes(const uint8_t* iBytes);
+        static bool   isDoubleGpsLike(const double& iDouble); // checks if double value can be interpreted as GPS coordinates
+        static double convertDoubleToGps(const double& iDOuble); // applies rule from dji phantom2 protocole for gps coordinates value
 
     private:
         packetv_t _packv;      // raw packed data stored in vector of chars
         uint8_t  _packetLen;   // 1 byte - packet length
         uint16_t _packetType;  // 3,4 bytes - type of packet (6C5C for message beginning)
         uint32_t _msgId;       // 6-9 bytes - message ID 
+        
+        vector<double> _dataDoubles; // vector for data parsed to doubles
+        void dataToDoubles();
 };
+
+
+// --- static methods ---
+bool Packet::isDoubleGpsLike(const double& iDouble)
+{
+    // check square where gps coordinates should point from our DAT files.
+    return (iDouble > 13.0 && iDouble < 102.0 && fabs(iDouble)>0.01);
+}
+
+double Packet::convertDoubleToGps(const double& iDouble)
+{
+    return iDouble * 180.0 / 3.141592653589793; // 0x32 at github.com/noahwilliamsson/dji-phantom-vision/blob/master/dji-phantom.c
+}
+
+double Packet::doubleFromBytes(const uint8_t* iBytes)
+{
+    double res;
+    memcpy(&res, iBytes, sizeof(double));
+    return res;
+}
+
+
+// --- methods ---
+void Packet::dataToDoubles()
+{
+    uint8_t aBytes[8]; // 8 - sizeof(double)
+
+    for (int i = PACKET_HEADER_LEN; i<_packv.size()-7; ++i)
+    {
+        // copy 4 bytes to aBytes
+        for (int j = 0; j<8; ++j)
+        {
+            aBytes[j] = _packv[i+j];
+        }
+        // convert aBytes to double
+        _dataDoubles.push_back(doubleFromBytes(aBytes));
+        //cout << "[DBG]: $ bytes of data converted to double "<< _dataDoubles.back() <<endl;
+    }
+}
 
 
 string Packet::toString() const
 {
     stringstream ss;
-    ss << "PacketID: " << dec << _msgId;
+    ss << "MsgID: " << dec << _msgId;
     ss << ", len: " << (int)_packetLen;
-    ss << ", type: " << noshowbase << hex << setw(4) << setfill ('0') << _packetType << ": ";
+    ss << ", type: " << noshowbase << hex << setw(4) << setfill ('0') << _packetType;
+    ss << ", num of doubles: " <<  dec << (unsigned int)_dataDoubles.size() << ": ";
     for ( packetv_t::const_iterator it = _packv.begin(); it != _packv.end(); ++it)
     {
         ss << noshowbase << hex << setw(2) << setfill('0') << (int)(unsigned char)(*it) << " ";
@@ -73,14 +122,23 @@ void Packet::parseHex()
 //  other byts are unknown and we consider them as DATA (or payload)
 //
 
-    if (_packv.size() < 10)
+    if (_packv.size() < PACKET_HEADER_LEN)
     {
-        cout << "Error while parsing message: message to short, size: " << dec <<_packv.size() << endl;
+        //cerr << "Error while parsing message: message to short, size: " << dec <<_packv.size() << endl;
         return;
     }
+
     // byte 1 - packet len
     _packetLen = _packv[1];
-    
+    // packet len in byte1 must be the same as _packv vector length
+    // otherwise consider that message is corrupted
+    if (_packetLen != _packv.size() )
+    {
+        //cerr << "Error while parsing message: message length in packet ("<< dec << (int)_packetLen
+        //     << ") is not equal to number of bytes read from file("<< dec << _packv.size() << ")" << endl;
+        return;
+    }
+
     // bytes 3 and 4 - packet type (2 bytes)
     char aType[2];
     for (int i = 0; i<2; ++i) aType[i] = _packv[i+3];
@@ -93,6 +151,9 @@ void Packet::parseHex()
         aMsgId[i] = _packv[i+6];
     }
     memcpy(&_msgId, aMsgId, 4);
+
+    // try to convert all data bytes into doubles
+    dataToDoubles();
 }
 
 
@@ -126,7 +187,8 @@ int main(int argc, char** argv)
 
     char aBuf;
     Packet packet;
-    vector<Packet> packets;
+    vector<Packet> packets01cf;
+    int packetsNumber = 0;
     while (!file.eof() && !file.fail()) 
     {
         file.read(&aBuf, 1);
@@ -142,8 +204,41 @@ int main(int argc, char** argv)
             if (aTmpBuf == 0x00)
             {
                 packet.parseHex();
-                cout << packet.toString();
-                packets.push_back(packet);
+                // check the theory that packet of type 0x01cf is dedicated
+                // for gps coordinates
+                if (packet.getPacketType() == 0x01cf)
+                {
+                    packets01cf.push_back(packet);
+                    
+                    // lets read all doubles and select only those packets
+                    // that have more than 1
+                    Packet& tp = packets01cf.back();
+                    int found = 0;
+                    stringstream ss;
+                    for (vector<double>::const_iterator it = tp.getDataDoubles().begin(); 
+                            it != tp.getDataDoubles().end(); ++it)
+                    {
+                        if (Packet::isDoubleGpsLike(Packet::convertDoubleToGps(*it)))
+                        {
+                            ss << "Converted double found at position [" << dec << it-tp.getDataDoubles().begin()
+                                 << "] " << dec << fixed << Packet::convertDoubleToGps(*it) << endl;
+                            found++;
+                        }
+                    }
+                    if (found>1) 
+                    {
+                        cout << ss.str();
+                        cout << tp.toString();
+                        // NOTE: not all of these packets pointing to the right place! 
+                        // structure of this packet still needs to be decoded
+                        // what we know now is that coordinates are stored in packets of type 0x01cf, 
+                        // gps pars starts from 0 byte of data (longitude) then 8th byte of data (lattitude)
+                        // the rest is to be decoded
+                        // also needs to be decoded why other packets of the same type & structure are
+                        // pointing to another places
+                    }
+                }
+                packetsNumber++;
                 packet.clear();
             }
             // return back the position
@@ -151,19 +246,9 @@ int main(int argc, char** argv)
         }
         packet.push_back(aBuf);
     }
-    cout << "Number of packets found: " << dec <<  packets.size() << endl;
-    set<uint32_t> idset;
-    for (vector<Packet>::const_iterator it = packets.begin(); it != packets.end(); ++it)
-    {
-        idset.insert(it->getPacketType());
-    }
 
-    cout << "Number of different packet IDs found: " << dec << idset.size() << endl;
-    for (set<uint32_t>::iterator it = idset.begin(); it != idset.end(); ++it)
-    {
-        cout << noshowbase << hex << setw(4) << setfill ('0') << *it << " ";
-    } 
-    cout << endl;
-
-return 0;
+    cout << "Number of packets found: " << dec << packetsNumber << endl;
+    cout << "Number of packets of type 0x01CF: " << dec << packets01cf.size() << endl; 
+    
+    return 0;
 } 
