@@ -36,3 +36,9 @@ FLY*.txt
 *.txt
 
 *.doc
+
+dat/
+
+tags
+*.dSYM/
+parser
