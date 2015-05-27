@@ -41,7 +41,7 @@ class Packet
 
         void push_back(char iVal){ _packv.push_back(iVal); };
         void clear(){ _packv.clear(); _dataDoubles.clear(); };
-        std::string toString() const;
+        virtual std::string toString();
 
         virtual void parseHex();
 
@@ -56,10 +56,10 @@ class Packet
 
         // TODO: rewrite four  methods below as templates
         const double doubleFromBytePos(int iPosition) const; // converts 8 bytes to double from position in raw vector
-        const double floatFromBytePos(int iPosition) const;  // converts 4 bytes to float from position in raw vector
+        const float floatFromBytePos(int iPosition) const;  // converts 4 bytes to float from position in raw vector
         
         static double doubleFromBytes(const uint8_t* iBytes);
-        static double floatFromBytes(const uint8_t* iBytes);
+        static float floatFromBytes(const uint8_t* iBytes);
         
         static bool   isDoubleGpsLike(const double& iDouble); // checks if double value can be interpreted as GPS coordinates
         static double convertDoubleToGps(const double& iDOuble); // applies rule from dji phantom2 protocole for gps coordinates value
@@ -89,13 +89,17 @@ class GPSPacket : public Packet
     public:
         GPSPacket():Packet(),_valid(false){};
 
-        const bool isValid() const {return _valid;};
-        void parseHex();
-        
+        virtual const bool isValid() const {return _valid;};
+        virtual void parseHex();
+        virtual std::string toString();
+       
+        static const std::string csvHeader();
+        const std::string toCsvString() const;
+
     private:
-        double _long;
+        double _lon;
         double _lat;
-        double _alt;
+        float _alt;
 
         bool _valid;
 };

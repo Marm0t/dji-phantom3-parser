@@ -32,9 +32,9 @@ double Packet::doubleFromBytes(const uint8_t* iBytes)
     return res;
 }
 
-double Packet::floatFromBytes(const uint8_t* iBytes)
+float Packet::floatFromBytes(const uint8_t* iBytes)
 {
-    double res;
+    float res;
     memcpy(&res, iBytes, sizeof(float));
     return res;
 }
@@ -46,25 +46,24 @@ const double Packet::doubleFromBytePos(int iPosition) const
     // copy 8 bytes to aBytes
     for (int j = 0; j<sizeof(double); ++j)
     {
-        aBytes[j] = _packv[j];
+        aBytes[j] = _packv[j+iPosition];
     }
     // convert aBytes to double
    return  Packet::doubleFromBytes(aBytes);
 }
 
-const double Packet::floatFromBytePos(int iPosition) const
+const float Packet::floatFromBytePos(int iPosition) const
 {
     uint8_t aBytes[4]; // 4 - sizeof(float)
 
     // copy 4 bytes to aBytes
     for (int j = 0; j<sizeof(float); ++j)
     {
-        aBytes[j] = _packv[j];
+        aBytes[j] = _packv[iPosition+j];
     }
     // convert aBytes to double
    return  Packet::floatFromBytes(aBytes);
 }
-
 
 
 //member methods
@@ -85,7 +84,7 @@ void Packet::dataToDoubles()
 }
 
 
-string Packet::toString() const
+string Packet::toString()
 {
     stringstream ss;
     ss << "MsgID: " << dec << _msgId;
@@ -150,21 +149,56 @@ void GPSPacket::parseHex()
     // first we should check packet type (must be 0x01CF)
     if (this->getPacketType() != 0x01CF)
     {
-        cout << "GPSPacket: Wrong packet type: " << hex << this->getPacketType();
+     //   cout << "GPSPacket: Wrong packet type: " << hex << this->getPacketType();
         _valid = false;
+        return;
     }
 
     // then check byte#6 (must be 0x00 for pgs packet)
     if (this->getPacketRaw()[6] != 0x00)
     {
-        cout << "GPSPacket: Wrong byte#6 (muxt be 0x00) " << hex << this->getPacketRaw()[6] << endl;
+     //   cout << "GPSPacket: Wrong byte#6 (muxt be 0x00) " << hex << this->getPacketRaw()[6] << endl;
         _valid = false;
+        return;
     }
 
     // now we can get lat/long/alt values
     // TODO
+    _lon=convertDoubleToGps(doubleFromBytePos(10)); // byte#10 - beginning of longitude
+    _lat=convertDoubleToGps(doubleFromBytePos(18)); // byte#18 - beginning of latitude
+    _alt=floatFromBytePos(26);
+    
+    _valid = true;
 
 }
 
+string GPSPacket::toString()
+{
+    stringstream ss;
+    ss << "GPS Packet details: " << endl;
+    ss << "Longitude: " << dec << fixed << _lon << endl;
+    ss << "Latitude : " << dec << fixed << _lat << endl;
+    ss << "Altitude : " << dec << fixed << _alt << " meters" << endl;
+    // Debug purpose:
+    //ss << "Packet details:"<<  endl << Packet::toString();
+    ss << endl;
+    return ss.str();
+}
+
+const string GPSPacket::toCsvString() const
+{
+    stringstream ss;
+    ss << dec << fixed << _lat;
+    ss << ","<< dec << fixed << _lon;
+    ss << ","<< dec << fixed << _alt;
+    ss << endl;
+    return ss.str();
+}
+
+
+const string GPSPacket::csvHeader()
+{
+    return "Latitude,Longitude,Altitude\n";
+}
 
 

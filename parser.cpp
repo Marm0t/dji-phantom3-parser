@@ -22,7 +22,7 @@ int main(int argc, char** argv)
     int num = 1;
     if(*(char *)&num == 1)
     {
-        cout << "Little-Endian"<<endl;
+       // cout << "Little-Endian"<<endl;
     }
     else
     {
@@ -30,7 +30,7 @@ int main(int argc, char** argv)
         return 1;
     }
     string filename(argv[1]);
-    cout << "Reading file " << filename << endl;
+    cout << "File name: " << filename << endl;
 
     ifstream file(filename.c_str(), ios::binary);
     if (file.fail() || !file.is_open())
@@ -48,8 +48,6 @@ int main(int argc, char** argv)
     {
         aPos = file.tellg();
         file.read(&aBuf, 1); // read one byte
-    cout << "[DBG]: ABUF=0x"<<hex << (unsigned int)aBuf << endl;
-        
     }
     if (file.eof() || file.fail())
     {
@@ -59,6 +57,7 @@ int main(int argc, char** argv)
     // go back one byte in the file so we start reading packet from the beginning
     file.seekg(aPos);
 
+    cout << GPSPacket::csvHeader();
     // now lets read all packets one by one
     while (!file.eof() && !file.fail()) 
     {
@@ -67,7 +66,8 @@ int main(int argc, char** argv)
         // 55 28 00 6c 5c 00 70 f7 01 00 70 70 6e 70 71 70 10 70 78 70 62 88 70 70 70 70 70 70 70 70 70 70 70 70 4e 9d 71 70 60 a7
         //  ^ - we start from here and should read LEN bytes
         // LEN = byte#1 (in example above it is 0x28 (hex) = 40 (dec)
-        Packet packet;
+        //Packet packet;
+        GPSPacket packet;
         file.read(&aBuf, 1);
         if (aBuf != 0x55)
         {
@@ -91,7 +91,7 @@ int main(int argc, char** argv)
         file.read(&aBuf, 1);
         if (aBuf != 0x00)
         {
-            cout << "Corrupted packet header: byte#2 is not 0x00: " << hex << (int)aBuf << endl;
+            //cout << "Corrupted packet header: byte#2 is not 0x00: " << hex << (int)aBuf << endl;
             continue;
         }
         packet.push_back(aBuf);
@@ -106,45 +106,14 @@ int main(int argc, char** argv)
 
         // Packet is ready for parsing!
         packet.parseHex();
-
-        // check the theory that packet of type 0x01cf is dedicated
-        // for gps coordinates
-        if (packet.getPacketType() == 0x01cf)
+        if (packet.isValid())
         {
-            packets01cf.push_back(packet);
-            
-            // lets read all doubles and select only those packets
-            // that have more than 1
-            Packet& tp = packets01cf.back();
-            int found = 0;
-            stringstream ss;
-            for (vector<double>::const_iterator it = tp.getDataDoubles().begin(); 
-                    it != tp.getDataDoubles().end(); ++it)
-            {
-                if (Packet::isDoubleGpsLike(Packet::convertDoubleToGps(*it)))
-                {
-                    ss << "Converted double found at position [" << dec << it-tp.getDataDoubles().begin()
-                         << "] " << dec << fixed << Packet::convertDoubleToGps(*it) << endl;
-                    found++;
-                }
-            }
-            if (found>1 /*&& fabs(Packet::convertDoubleToGps(tp.getDataDoubles()[0])-99) < 2*/   ) // TODO: this if is just for analysis, like grep 
-            {
-                cout << ss.str();
-                cout << tp.toString();
-                // NOTE: not all of these packets pointing to the right place! 
-                // structure of this packet still needs to be decoded
-                // what we know now is that coordinates are stored in packets of type 0x01cf, 
-                // gps pars starts from 0 byte of data (longitude) then 8th byte of data (lattitude)
-                // the rest is to be decoded
-                // also needs to be decoded why other packets of the same type & structure are
-                // pointing to another places
-            }
+            //cout << packet.toString();
+            cout << packet.toCsvString();
         }
         packetsNumber++;
     }
 
-    cout << "Number of packets found: " << dec << packetsNumber << endl;
-    cout << "Number of packets in packets01cf: " << dec << packets01cf.size() << endl;
+//    cout << "Number of packets found: " << dec << packetsNumber << endl;
     return 0;
 } 
