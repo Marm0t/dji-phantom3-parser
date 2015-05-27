@@ -32,6 +32,40 @@ double Packet::doubleFromBytes(const uint8_t* iBytes)
     return res;
 }
 
+double Packet::floatFromBytes(const uint8_t* iBytes)
+{
+    double res;
+    memcpy(&res, iBytes, sizeof(float));
+    return res;
+}
+
+const double Packet::doubleFromBytePos(int iPosition) const
+{
+    uint8_t aBytes[8]; // 8 - sizeof(double)
+
+    // copy 8 bytes to aBytes
+    for (int j = 0; j<sizeof(double); ++j)
+    {
+        aBytes[j] = _packv[j];
+    }
+    // convert aBytes to double
+   return  Packet::doubleFromBytes(aBytes);
+}
+
+const double Packet::floatFromBytePos(int iPosition) const
+{
+    uint8_t aBytes[4]; // 4 - sizeof(float)
+
+    // copy 4 bytes to aBytes
+    for (int j = 0; j<sizeof(float); ++j)
+    {
+        aBytes[j] = _packv[j];
+    }
+    // convert aBytes to double
+   return  Packet::floatFromBytes(aBytes);
+}
+
+
 
 //member methods
 void Packet::dataToDoubles()
@@ -40,7 +74,7 @@ void Packet::dataToDoubles()
 
     for (int i = PACKET_HEADER_LEN; i<_packv.size()-7; ++i)
     {
-        // copy 4 bytes to aBytes
+        // copy 8 bytes to aBytes
         for (int j = 0; j<8; ++j)
         {
             aBytes[j] = _packv[i+j];
@@ -71,6 +105,7 @@ void Packet::parseHex()
     if (_packv.size() < PACKET_HEADER_LEN)
     {
         cerr << "Error while parsing message: message to short, size: " << dec <<_packv.size() << endl;
+        _valid = false;
         return;
     }
 
@@ -80,9 +115,9 @@ void Packet::parseHex()
     // otherwise consider that message is corrupted
     if (_packetLen != _packv.size() )
     {
-        //TODO: replace with exceptions
         cerr << "Error while parsing message: message length in packet ("<< dec << (int)_packetLen
              << ") is not equal to number of bytes read from file("<< dec << _packv.size() << ")" << endl;
+        _valid = false;
         return;
     }
 
@@ -99,7 +134,37 @@ void Packet::parseHex()
     }
     memcpy(&_msgId, aMsgId, 4);
 
+    _valid = true;
+
     // try to convert all data bytes into doubles
     dataToDoubles();
 }
+
+
+
+//====== class GPSPacket ======
+void GPSPacket::parseHex()
+{
+    Packet::parseHex();
+    
+    // first we should check packet type (must be 0x01CF)
+    if (this->getPacketType() != 0x01CF)
+    {
+        cout << "GPSPacket: Wrong packet type: " << hex << this->getPacketType();
+        _valid = false;
+    }
+
+    // then check byte#6 (must be 0x00 for pgs packet)
+    if (this->getPacketRaw()[6] != 0x00)
+    {
+        cout << "GPSPacket: Wrong byte#6 (muxt be 0x00) " << hex << this->getPacketRaw()[6] << endl;
+        _valid = false;
+    }
+
+    // now we can get lat/long/alt values
+    // TODO
+
+}
+
+
 
