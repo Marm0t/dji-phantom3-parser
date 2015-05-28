@@ -90,9 +90,17 @@ string Packet::toString()
     ss << "MsgID: " << dec << _msgId;
     ss << ", len: " << (int)_packetLen;
     ss << ", type: " << noshowbase << hex << setw(4) << setfill ('0') << _packetType << endl;
+    /*
     for ( packetv_t::const_iterator it = _packv.begin(); it != _packv.end(); ++it)
     {
         ss << noshowbase << hex << setw(2) << setfill('0') << (int)(unsigned char)(*it) << " ";
+    }
+    */
+    for (int i = 0; i< _packv.size(); ++i)
+    {
+        if (i==10 || i==18 || i==26) ss << endl;
+        if (i==30 || i==62) ss <<endl << endl; // unknown part of the GPS message begins
+        ss << noshowbase << hex << setw(2) << setfill('0') << (int)(unsigned char)(_packv[i]) << " ";
     }
     ss << dec << endl;
     return ss.str();
@@ -167,6 +175,17 @@ void GPSPacket::parseHex()
     _lon=convertDoubleToGps(doubleFromBytePos(10)); // byte#10 - beginning of longitude
     _lat=convertDoubleToGps(doubleFromBytePos(18)); // byte#18 - beginning of latitude
     _alt=floatFromBytePos(26);
+
+    _bytes30_33_f=floatFromBytePos(30);
+    _bytes34_37_f=floatFromBytePos(34);
+    _bytes38_41_f=floatFromBytePos(38);
+    _bytes42_45_f=floatFromBytePos(42);
+    
+    _bytes46_49_f=floatFromBytePos(46);
+    _bytes50_53_f=floatFromBytePos(50);
+    _bytes54_57_f=floatFromBytePos(54);
+    _bytes58_61_f=floatFromBytePos(58);
+    
     
     _valid = true;
 
@@ -179,8 +198,19 @@ string GPSPacket::toString()
     ss << "Longitude: " << dec << fixed << _lon << endl;
     ss << "Latitude : " << dec << fixed << _lat << endl;
     ss << "Altitude : " << dec << fixed << _alt << " meters" << endl;
+    ss << endl;
+    ss << "_bytes30_33_f: " << dec<<fixed<<_bytes30_33_f<<endl; 
+    ss << "_bytes34_37_f: " << dec<<fixed<<_bytes34_37_f<<endl; 
+    ss << "_bytes38_41_f: " << dec<<fixed<<_bytes38_41_f<<endl; 
+    ss << "_bytes42_45_f: " << dec<<fixed<<_bytes42_45_f<<endl; 
+    ss << endl;
+    ss << "_bytes46_49_f: " << dec<<fixed<<_bytes46_49_f<<endl; 
+    ss << "_bytes50_53_f: " << dec<<fixed<<_bytes50_53_f<<endl; 
+    ss << "_bytes54_57_f: " << dec<<fixed<<_bytes54_57_f<<endl; 
+    ss << "_bytes58_61_f: " << dec<<fixed<<_bytes58_61_f<<endl; 
+
     // Debug purpose:
-    //ss << "Packet details:"<<  endl << Packet::toString();
+    ss << "Packet details:"<<  endl << Packet::toString();
     ss << endl;
     return ss.str();
 }
@@ -191,6 +221,16 @@ const string GPSPacket::toCsvString() const
     ss << dec << fixed << _lat;
     ss << ","<< dec << fixed << _lon;
     ss << ","<< dec << fixed << _alt;
+    
+    ss << ","<< dec<<fixed<<_bytes30_33_f; 
+    ss << ","<< dec<<fixed<<_bytes34_37_f; 
+    ss << ","<< dec<<fixed<<_bytes38_41_f; 
+    ss << ","<< dec<<fixed<<_bytes42_45_f; 
+    ss << ","<< dec<<fixed<<_bytes46_49_f; 
+    ss << ","<< dec<<fixed<<_bytes50_53_f; 
+    ss << ","<< dec<<fixed<<_bytes54_57_f; 
+    ss << ","<< dec<<fixed<<_bytes58_61_f; 
+    
     ss << endl;
     return ss.str();
 }
@@ -198,7 +238,7 @@ const string GPSPacket::toCsvString() const
 
 const string GPSPacket::csvHeader()
 {
-    return "Latitude,Longitude,Altitude\n";
+    return "Latitude,Longitude,Altitude,_bytes30_33_f,_bytes34_37_f,_bytes38_41_f,_bytes42_45_f,_bytes46_49_f,_bytes50_53_f,_bytes54_57_f,_bytes58_61_f\n";
 }
 
 

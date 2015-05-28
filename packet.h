@@ -102,6 +102,16 @@ class GPSPacket : public Packet
         float _alt;
 
         bool _valid;
-};
 
+        float _bytes30_33_f;
+        float _bytes34_37_f;
+        float _bytes38_41_f;
+        float _bytes42_45_f;
+
+        float _bytes46_49_f;
+        float _bytes50_53_f;
+        float _bytes54_57_f;
+        float _bytes58_61_f;
+        
+};
 #endif // #ifndef PACKET_H_
