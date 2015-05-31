@@ -65,6 +65,48 @@ const float Packet::floatFromBytePos(int iPosition) const
    return  Packet::floatFromBytes(aBytes);
 }
 
+string Packet::dateFromFourBytes(const uint8_t* iBytes)
+{
+    // NOTE: it's only for test purpose!
+    // We are not sure that date and time envoded in this particular format!!!
+
+    //Convert 4 bytes to datetime according to this rule
+    // YYYYYYYMMMMDDDDDHHHHMMMMMMSSSSSS
+    //    7     4   5    4    6     6  
+    // stored as little endian 32bit unsigned integer
+    
+    unsigned int aValue;
+    memcpy(&aValue, iBytes, sizeof(unsigned int)); 
+    
+    int sec = aValue &  0x3f; //0x3F(16) = 0011 1111 (2)
+    aValue = aValue >> 6; // move to minutes
+    int min = aValue & 0x3f;
+    aValue = aValue >> 6; // move to hours
+    int hour = aValue & 0xf; // 0xf = 1111
+    aValue = aValue >> 4; // move to day
+    int day = aValue & 0x1f; // 0x1f = 0001 1111
+    aValue = aValue >> 5; // move to month
+    int month = aValue & 0xf; // 0xf = 1111
+    aValue = aValue >> 4; // ove to year
+    int year = aValue & 0x7F; // 0x7F = 0011 1111
+    stringstream ss;
+    ss << day<<"/"<<month<<"/"<<year<<" "
+       << hour<<":"<<min<<":"<<sec;
+    return ss.str();
+}
+
+const string Packet::datetimeFromBytePos(int iPos) const
+{
+    uint8_t aBytes[4]; // 4 - sizeof(unsigned int)
+    // copy 4 bytes to aBytes
+    for (int j = 0; j<sizeof(float); ++j)
+    {
+        aBytes[j] = _packv[iPos+j];
+    }
+    // convert aBytes to double
+   return  Packet::dateFromFourBytes(aBytes);
+
+}
 
 //member methods
 void Packet::dataToDoubles()
@@ -199,15 +241,23 @@ string GPSPacket::toString()
     ss << "Latitude : " << dec << fixed << _lat << endl;
     ss << "Altitude : " << dec << fixed << _alt << " meters" << endl;
     ss << endl;
-    ss << "_bytes30_33_f: " << dec<<fixed<<_bytes30_33_f<<endl; 
-    ss << "_bytes34_37_f: " << dec<<fixed<<_bytes34_37_f<<endl; 
-    ss << "_bytes38_41_f: " << dec<<fixed<<_bytes38_41_f<<endl; 
-    ss << "_bytes42_45_f: " << dec<<fixed<<_bytes42_45_f<<endl; 
+    ss << "_bytes30_33_f: " << dec<<fixed<<_bytes30_33_f
+       << " time? - " << datetimeFromBytePos(30) <<endl; 
+    ss << "_bytes34_37_f: " << dec<<fixed<<_bytes34_37_f 
+       << " time? - " << datetimeFromBytePos(34) <<endl; 
+    ss << "_bytes38_41_f: " << dec<<fixed<<_bytes38_41_f
+       << " time? - " << datetimeFromBytePos(38) <<endl; 
+    ss << "_bytes42_45_f: " << dec<<fixed<<_bytes42_45_f
+       << " time? - " << datetimeFromBytePos(42) <<endl; 
     ss << endl;
-    ss << "_bytes46_49_f: " << dec<<fixed<<_bytes46_49_f<<endl; 
-    ss << "_bytes50_53_f: " << dec<<fixed<<_bytes50_53_f<<endl; 
-    ss << "_bytes54_57_f: " << dec<<fixed<<_bytes54_57_f<<endl; 
-    ss << "_bytes58_61_f: " << dec<<fixed<<_bytes58_61_f<<endl; 
+    ss << "_bytes46_49_f: " << dec<<fixed<<_bytes46_49_f
+        << " time? - " << datetimeFromBytePos(46) <<endl; 
+    ss << "_bytes50_53_f: " << dec<<fixed<<_bytes50_53_f
+        << " time? - " << datetimeFromBytePos(50) <<endl; 
+    ss << "_bytes54_57_f: " << dec<<fixed<<_bytes54_57_f
+        << " time? - " << datetimeFromBytePos(54) <<endl; 
+    ss << "_bytes58_61_f: " << dec<<fixed<<_bytes58_61_f
+        << " time? - " << datetimeFromBytePos(58) <<endl; 
 
     // Debug purpose:
     ss << "Packet details:"<<  endl << Packet::toString();

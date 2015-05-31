@@ -108,8 +108,8 @@ int main(int argc, char** argv)
         packet.parseHex();
         if (packet.isValid())
         {
-            //cout << packet.toString();
-            cout << packet.toCsvString();
+            cout << packet.toString();
+            //cout << packet.toCsvString();
         }
         packetsNumber++;
     }

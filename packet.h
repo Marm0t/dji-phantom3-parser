@@ -57,12 +57,15 @@ class Packet
         // TODO: rewrite four  methods below as templates
         const double doubleFromBytePos(int iPosition) const; // converts 8 bytes to double from position in raw vector
         const float floatFromBytePos(int iPosition) const;  // converts 4 bytes to float from position in raw vector
-        
+        const std::string datetimeFromBytePos(int iPos) const; // converts 4 bytes in raw data to datetime
+
         static double doubleFromBytes(const uint8_t* iBytes);
         static float floatFromBytes(const uint8_t* iBytes);
         
         static bool   isDoubleGpsLike(const double& iDouble); // checks if double value can be interpreted as GPS coordinates
         static double convertDoubleToGps(const double& iDOuble); // applies rule from dji phantom2 protocole for gps coordinates value
+
+        static std::string dateFromFourBytes(const uint8_t* iBytes); // convert 4 bytes to datetime string (http://www.rcgroups.com/forums/showthread.php?t=1995704)
 
     private:
         packetv_t _packv;      // raw packed data stored in vector of chars
